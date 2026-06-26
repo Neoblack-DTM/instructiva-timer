@@ -4,9 +4,9 @@ Timer 1 para campanhas de e-mail marketing com contagem regressiva evergreen.
 
 ## O que ele faz
 
-- Calcula automaticamente a próxima **terça-feira às 19:00, horário de Brasília**.
+- Calcula automaticamente a próxima **terça-feira às 20:00, horário de Brasília**.
 - O cálculo usa sempre o timezone oficial `America/Sao_Paulo`.
-- Se hoje for terça em Brasília e ainda não for 19h, o estado mostrado é `HOJE`.
+- Se hoje for terça em Brasília e ainda não for 20h, o estado mostrado é `HOJE`.
 - Se a terça for no dia seguinte, mostra `AMANHÃ`.
 - Demais casos mostram `PRÓXIMA TERÇA`.
 - Gera um **GIF animado** no endpoint para uso dentro de `<img>` em e-mail.
@@ -15,7 +15,7 @@ Timer 1 para campanhas de e-mail marketing com contagem regressiva evergreen.
 
 Observação de timezone:
 
-- O evento é fixo em **19h, horário de Brasília**.
+- O evento é fixo em **20h, horário de Brasília**.
 - Pessoas em outros fusos verão a contagem para esse mesmo horário oficial.
 
 ## Estrutura
@@ -27,7 +27,7 @@ Observação de timezone:
 ## Estados possíveis do timer
 
 1) `HOJE`
-- A contagem está para a terça da semana atual e ainda não passou das 19h.
+- A contagem está para a terça da semana atual e ainda não passou das 20h.
 
 2) `AMANHÃ`
 - A próxima terça está no dia seguinte.

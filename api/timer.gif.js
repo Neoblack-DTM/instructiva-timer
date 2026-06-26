@@ -7,7 +7,7 @@ const { DateTime } = require("luxon");
 
 const EVENT_TIMEZONE = "America/Sao_Paulo";
 const TARGET_WEEKDAY = 2; // Tuesday in Luxon (1=Mon .. 7=Sun)
-const TARGET_HOUR = 19;
+const TARGET_HOUR = 20;
 const TARGET_MINUTE = 0;
 const WIDTH = 640;
 const HEIGHT = 260;
@@ -168,7 +168,7 @@ function createFrameSvg(nowLocal) {
   const target = getNextTuesdayAtTargetTime(nowLocal);
   const state = getStateLabel(nowLocal, target);
   const remaining = toRemainingParts(target.toMillis() - nowLocal.toMillis());
-  const dateLabel = `${formatDateLabel(target)} às 19h, horário de Brasília`;
+  const dateLabel = `${formatDateLabel(target)} às 20h, horário de Brasília`;
 
   const days = pad2(remaining.days);
   const hours = pad2(remaining.hours);
