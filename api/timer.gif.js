@@ -1,62 +1,173 @@
 const PImage = require("pureimage");
 const { GIFEncoder, quantize, applyPalette } = require("gifenc");
+const { DateTime } = require("luxon");
 
-const BRASLIA_OFFSET_MINUTES = Number(process.env.BRT_OFFSET_MINUTES ?? -180); // America/Sao_Paulo
-const BR_TIMEZONE_LABEL = "BRT";
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const MS_PER_HOUR = 60 * 60 * 1000;
-const MS_PER_MINUTE = 60 * 1000;
-const MS_PER_SECOND = 1000;
-
+const DEFAULT_TIMEZONE = "America/Sao_Paulo";
+const TARGET_WEEKDAY = 2; // Tuesday in Luxon (1=Mon .. 7=Sun)
+const TARGET_HOUR = 19;
+const TARGET_MINUTE = 0;
 const WIDTH = 820;
 const HEIGHT = 320;
 
-function toBrasiliaDate(dateUtc = new Date()) {
-  return new Date(dateUtc.getTime() + BRASLIA_OFFSET_MINUTES * MS_PER_MINUTE);
-}
+const MS_PER_SECOND = 1000;
+const MS_PER_MINUTE = 60 * MS_PER_SECOND;
+const MS_PER_HOUR = 60 * MS_PER_MINUTE;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
 
-function isSameDay(a, b) {
-  return (
-    a.getUTCFullYear() === b.getUTCFullYear() &&
-    a.getUTCMonth() === b.getUTCMonth() &&
-    a.getUTCDate() === b.getUTCDate()
-  );
-}
+const palette = {
+  background: "#020617",
+  panel: "#0f172a",
+  panelLine: "#1f2a4a",
+  panelTitle: "#38bdf8",
+  title: "#f8fafc",
+  subtitle: "#94a3b8",
+  tileBg: "#13213a",
+  tileText: "#94a3b8",
+  tileValue: "#e2e8f0",
+  footer: "#cbd5e1",
+  state: "#67e8f9",
+};
 
-function getNextTuesdayAt19Br(nowBr) {
-  const dayOfWeek = nowBr.getUTCDay(); // 0..6, Tue = 2
-  const daysToTuesday = (2 - dayOfWeek + 7) % 7;
+const COUNTRY_TO_TZ = {
+  BR: "America/Sao_Paulo",
+  AR: "America/Argentina/Buenos_Aires",
+  BO: "America/La_Paz",
+  CL: "America/Santiago",
+  CO: "America/Bogota",
+  CR: "America/Costa_Rica",
+  CU: "America/Havana",
+  DO: "America/Santo_Domingo",
+  EC: "America/Guayaquil",
+  GT: "America/Guatemala",
+  HN: "America/Tegucigalpa",
+  MX: "America/Mexico_City",
+  PE: "America/Lima",
+  PY: "America/Asuncion",
+  US: "America/New_York",
+  CA: "America/Toronto",
+  ES: "Europe/Madrid",
+  PT: "Europe/Lisbon",
+};
 
-  const targetBr = new Date(
-    Date.UTC(
-      nowBr.getUTCFullYear(),
-      nowBr.getUTCMonth(),
-      nowBr.getUTCDate(),
-      19,
-      0,
-      0,
-      0
-    )
-  );
-
-  if (daysToTuesday === 0 && nowBr.getUTCHours() >= 19) {
-    targetBr.setUTCDate(targetBr.getUTCDate() + 7);
-  } else {
-    targetBr.setUTCDate(targetBr.getUTCDate() + daysToTuesday);
+function isValidTimeZone(timeZone) {
+  if (!timeZone || typeof timeZone !== "string") {
+    return false;
   }
 
-  return targetBr;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timeZone.trim() }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-function getStateLabel(nowBr, targetBr) {
-  const tomorrowBr = new Date(nowBr.getTime() + MS_PER_DAY);
+function getHeader(req, names) {
+  const headers = req?.headers || {};
 
-  if (isSameDay(targetBr, nowBr)) {
+  for (const name of names) {
+    const value = headers[name] || headers[name.toLowerCase()];
+
+    if (Array.isArray(value)) {
+      if (value[0]) return value[0];
+      continue;
+    }
+
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function getFallbackTimeZoneFromCountry(country) {
+  if (!country) {
+    return null;
+  }
+
+  return COUNTRY_TO_TZ[country.toUpperCase()] || null;
+}
+
+function detectTimeZone(req) {
+  try {
+    const requestUrl = new URL(req.url || "", "https://instructiva-timer.local");
+    const tzFromQuery = requestUrl.searchParams.get("tz") || requestUrl.searchParams.get("timezone");
+
+    if (isValidTimeZone(tzFromQuery)) {
+      return tzFromQuery;
+    }
+  } catch {
+    // Ignore URL parse issues and continue to header lookup.
+  }
+
+  const tzCandidates = [
+    "x-vercel-ip-timezone",
+    "x-vercel-timezone",
+    "x-timezone",
+    "x-geo-time-zone",
+    "cf-timezone",
+  ];
+
+  const detectedFromHeader = getHeader(req, tzCandidates);
+
+  if (isValidTimeZone(detectedFromHeader)) {
+    return detectedFromHeader;
+  }
+
+  const country = getHeader(req, ["x-vercel-ip-country", "cf-ipcountry", "x-country"]);
+  const fromCountry = getFallbackTimeZoneFromCountry(country);
+
+  if (isValidTimeZone(fromCountry)) {
+    return fromCountry;
+  }
+
+  return DEFAULT_TIMEZONE;
+}
+
+function getTimezoneLabel(timeZone) {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "short",
+  });
+
+  const parts = formatter.formatToParts(now);
+  const tzPart = parts.find((part) => part.type === "timeZoneName");
+
+  return tzPart ? tzPart.value : timeZone;
+}
+
+function getNextTuesdayAtTargetTime(nowLocal) {
+  let target = nowLocal.set({
+    hour: TARGET_HOUR,
+    minute: TARGET_MINUTE,
+    second: 0,
+    millisecond: 0,
+  });
+
+  if (nowLocal > target) {
+    target = target.plus({ days: 1 });
+  }
+
+  if (target.weekday !== TARGET_WEEKDAY) {
+    const daysToTuesday = (TARGET_WEEKDAY - target.weekday + 7) % 7;
+    target = target.plus({ days: daysToTuesday });
+  }
+
+  return target;
+}
+
+function getStateLabel(nowLocal, targetLocal) {
+  const nowDay = nowLocal.startOf("day");
+  const tomorrow = nowLocal.plus({ days: 1 }).startOf("day");
+  const targetDay = targetLocal.startOf("day");
+
+  if (nowDay.valueOf() === targetDay.valueOf()) {
     return "HOJE";
   }
 
-  if (isSameDay(targetBr, tomorrowBr)) {
+  if (tomorrow.valueOf() === targetDay.valueOf()) {
     return "AMANHÃ";
   }
 
@@ -73,112 +184,111 @@ function toRemainingParts(totalMs) {
   return { days, hours, minutes, seconds };
 }
 
-function roundedRect(ctx, x, y, width, height, radius, fillStyle) {
-  ctx.fillStyle = fillStyle;
-  ctx.fillRect(x, y, width, height);
-}
-
-function drawTile(ctx, label, value, x, y) {
-  roundedRect(ctx, x, y, 176, 120, 16, "#13213a");
-
-  ctx.fillStyle = "#94a3b8";
-  ctx.font = "18px Arial, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(label, x + 88, y + 36);
-
-  ctx.fillStyle = "#e2e8f0";
-  ctx.font = "bold 52px Arial, sans-serif";
-  ctx.fillText(value, x + 88, y + 92);
-}
-
-function formatDateLabel(targetBr) {
-  const weekday = targetBr.toLocaleDateString("pt-BR", { weekday: "long" });
-  const date = targetBr.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-  });
-  return `${weekday}, ${date}`;
-}
-
-function toUtcFromBrasilia(targetBr) {
-  return targetBr.getTime() - BRASLIA_OFFSET_MINUTES * MS_PER_MINUTE;
-}
-
 function pad2(value) {
   return String(value).padStart(2, "0");
 }
 
+function fillRect(ctx, x, y, width, height, fillStyle) {
+  ctx.fillStyle = fillStyle;
+  ctx.fillRect(x, y, width, height);
+}
+
+function drawPanel(ctx) {
+  fillRect(ctx, 0, 0, WIDTH, HEIGHT, palette.background);
+  fillRect(ctx, 16, 16, WIDTH - 32, HEIGHT - 32, palette.panel);
+}
+
+function drawHeader(ctx) {
+  ctx.fillStyle = palette.panelTitle;
+  ctx.font = "bold 29px Arial, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("Timer 1", 48, 42);
+
+  ctx.fillStyle = palette.title;
+  ctx.font = "bold 36px Arial, sans-serif";
+  ctx.fillText("Contagem para terça às 19h", 48, 78);
+}
+
+function drawMeta(ctx, dateLabel, tzLabel) {
+  ctx.fillStyle = palette.subtitle;
+  ctx.font = "24px Arial, sans-serif";
+  ctx.fillText(`Próximo evento: ${dateLabel} às 19:00`, 48, 128);
+
+  ctx.fillText(`Fuso: ${tzLabel}`, 48, 160);
+}
+
+function drawTile(ctx, label, value, x, y) {
+  fillRect(ctx, x, y, 176, 112, palette.tileBg);
+
+  ctx.fillStyle = palette.tileText;
+  ctx.font = "18px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, x + 88, y + 30);
+
+  ctx.fillStyle = palette.tileValue;
+  ctx.font = "bold 50px Arial, sans-serif";
+  ctx.fillText(value, x + 88, y + 74);
+}
+
+function drawFooter(ctx, stateLabel, remainingLabel) {
+  ctx.fillStyle = palette.footer;
+  ctx.font = "18px Arial, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(`Estado: ${stateLabel}`, 48, 268);
+  ctx.fillText(remainingLabel, 48, 292);
+}
+
 module.exports = async (req, res) => {
   try {
-    const nowUtc = new Date();
-    const nowBr = toBrasiliaDate(nowUtc);
-    const targetBr = getNextTuesdayAt19Br(nowBr);
-    const state = getStateLabel(nowBr, targetBr);
-    const targetUtc = toUtcFromBrasilia(targetBr);
-    const totalMs = targetUtc - nowUtc.getTime();
+    const timeZone = detectTimeZone(req);
+    const now = DateTime.now().setZone(timeZone);
+    const target = getNextTuesdayAtTargetTime(now);
+
+    const state = getStateLabel(now, target);
+
+    const totalMs = target.toMillis() - now.toMillis();
     const remaining = toRemainingParts(totalMs);
-    const dateLabel = formatDateLabel(targetBr);
+
+    const daysLabel = pad2(remaining.days);
+    const hoursLabel = pad2(remaining.hours);
+    const minutesLabel = pad2(remaining.minutes);
+    const secondsLabel = pad2(remaining.seconds);
+
+    const dateLabel = target
+      .setLocale("pt-BR")
+      .toFormat("cccc, dd/MM");
+
+    const timezoneLabel = getTimezoneLabel(timeZone);
+
+    const remainingLabel = `Faltam ${daysLabel} dias, ${hoursLabel}:${minutesLabel}:${secondsLabel}`;
 
     const canvas = PImage.make(WIDTH, HEIGHT);
     const ctx = canvas.getContext("2d");
 
-    const background = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT);
-    background.addColorStop(0, "#020617");
-    background.addColorStop(1, "#0f172a");
-    ctx.fillStyle = background;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    drawPanel(ctx);
+    drawHeader(ctx);
+    drawMeta(ctx, dateLabel, timezoneLabel);
 
-    roundedRect(ctx, 24, 30, WIDTH - 48, HEIGHT - 60, 24, "#0f1c38");
+    const tileStartX = 48;
+    const tileStartY = 198;
 
-    ctx.fillStyle = "#38bdf8";
-    ctx.font = "bold 28px Arial, sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText("Timer 1", 64, 86);
+    drawTile(ctx, "DIAS", daysLabel, tileStartX, tileStartY);
+    drawTile(ctx, "HORAS", hoursLabel, tileStartX + 190, tileStartY);
+    drawTile(ctx, "MINUTOS", minutesLabel, tileStartX + 380, tileStartY);
+    drawTile(ctx, "SEGUNDOS", secondsLabel, tileStartX + 570, tileStartY);
 
-    ctx.fillStyle = "#f8fafc";
-    ctx.font = "bold 38px Arial, sans-serif";
-    ctx.fillText(`Contagem para terça às 19h ${BR_TIMEZONE_LABEL}`, 64, 135);
-
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "26px Arial, sans-serif";
-    ctx.fillText(`Próximo evento: ${dateLabel} às 19:00`, 64, 175);
-
-    const tileStartX = 64;
-    const tileStartY = 205;
-    drawTile(ctx, "DIAS", pad2(remaining.days), tileStartX, tileStartY);
-    drawTile(
-      ctx,
-      "HORAS",
-      `${pad2(remaining.hours)}`,
-      tileStartX + 196,
-      tileStartY
-    );
-    drawTile(
-      ctx,
-      "MINUTOS",
-      `${pad2(remaining.minutes)}`,
-      tileStartX + 392,
-      tileStartY
-    );
-    drawTile(
-      ctx,
-      "SEGUNDOS",
-      `${pad2(remaining.seconds)}`,
-      tileStartX + 588,
-      tileStartY
-    );
-
-    ctx.fillStyle = "#cbd5e1";
-    ctx.font = "24px Arial, sans-serif";
-    ctx.fillText(`Estado: ${state}`, 64, 280);
-    ctx.fillText("Atualiza no próximo refresh do e-mail (ou novo acesso ao pixel)", 64, 308);
+    drawFooter(ctx, state, remainingLabel);
 
     const { data: rgba } = ctx.getImageData(0, 0, WIDTH, HEIGHT);
-    const palette = quantize(rgba, 256);
-    const indexed = applyPalette(rgba, palette);
+    const quantizedPalette = quantize(rgba, 256);
+    const indexed = applyPalette(rgba, quantizedPalette);
+
     const encoder = GIFEncoder();
     encoder.writeFrame(indexed, WIDTH, HEIGHT, {
-      palette,
+      palette: quantizedPalette,
       delay: 1000,
       repeat: 0,
       transparent: false,
@@ -193,12 +303,15 @@ module.exports = async (req, res) => {
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("Content-Length", String(buffer.length));
-
     res.end(buffer);
   } catch (error) {
-    res.status(500).json({
-      error: "Falha ao gerar timer.gif",
-      details: error instanceof Error ? error.message : String(error),
-    });
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    res.end(
+      JSON.stringify({
+        error: "Falha ao gerar timer.gif",
+        details: error instanceof Error ? error.message : String(error),
+      })
+    );
   }
 };

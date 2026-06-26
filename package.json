@@ -8,6 +8,7 @@
     "start": "node api/timer.gif.js"
   },
   "dependencies": {
+    "luxon": "^3.5.0",
     "gifenc": "^1.0.3",
     "pureimage": "^0.4.18"
   }

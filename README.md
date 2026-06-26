@@ -4,11 +4,18 @@ Timer 1 para campanhas de e-mail marketing com contagem regressiva evergreen.
 
 ## O que ele faz
 
-- Calcula automaticamente a próxima **terça-feira às 19:00 (BRT)**.
+- Calcula automaticamente a próxima **terça-feira às 19:00** usando o timezone da pessoa que abriu o e-mail.
+- Se não for possível detectar o fuso, usa fallback oficial **America/Sao_Paulo**.
 - Se hoje for terça e ainda não for 19h, o estado mostrado é `HOJE`.
 - Se a terça for no dia seguinte, mostra `AMANHÃ`.
 - Demais casos mostram `PRÓXIMA TERÇA`.
 - Gera a imagem em **GIF** no endpoint para uso dentro de `<img>` em e-mail.
+
+Observação de timezone:
+
+- O timer tenta detectar `timezone` via headers de request (`x-vercel-ip-timezone`, `x-vercel-timezone` etc.).
+- Se não houver timezone de request, usa país de origem (`x-vercel-ip-country`) como fallback.
+- Também aceita override por query string para testes: `?tz=America/Sao_Paulo`.
 
 ## Estrutura
 
@@ -24,7 +31,7 @@ Timer 1 para campanhas de e-mail marketing com contagem regressiva evergreen.
 - A próxima terça está no dia seguinte.
 
 3) `PRÓXIMA TERÇA`
-- A terça não é nem hoje e nem amanhã.
+- A terça não é nem hoje nem amanhã.
 
 ## Uso no e-mail
 
@@ -40,8 +47,19 @@ No template do e-mail, insira:
 />
 ```
 
-Para evitar cache agressivo do cliente de e-mail e forçar recálculo em acessos novos,
-configuramos cabeçalhos `no-cache` na resposta.
+Para testes com timezone explícito:
+
+```html
+<img
+  src="https://seu-dominio.vercel.app/api/timer.gif?tz=America/Sao_Paulo"
+  alt="Timer 1"
+  width="820"
+  height="320"
+  style="border:0; display:block;"
+/>
+```
+
+Para reduzir cache indesejado no e-mail, pode usar `?v={{timestamp}}` no `src` também.
 
 ## Rodar localmente
 
