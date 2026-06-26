@@ -13,7 +13,7 @@ const WIDTH = 640;
 const HEIGHT = 260;
 const ANIMATION_FRAMES = 60;
 const FRAME_DELAY_MS = 1000;
-const TILE_WIDTH = 132;
+const TILE_WIDTH = 128;
 const TILE_HEIGHT = 82;
 
 const MS_PER_SECOND = 1000;
@@ -146,9 +146,20 @@ function getFrameCount(searchParams) {
 }
 
 function textPath(text, x, y, fontSize, font, fill, anchor = "start") {
-  const width = font.getAdvanceWidth(text, fontSize);
+  const characters = Array.from(text);
+  const width = characters.reduce((total, character) => total + font.getAdvanceWidth(character, fontSize), 0);
   const startX = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x;
-  const pathData = font.getPath(text, startX, y, fontSize).toPathData(1);
+  let currentX = startX;
+  const pathData = characters
+    .map((character) => {
+      const glyphX = Math.round(currentX * 10) / 10;
+      const characterPath = font.getPath(character, glyphX, y, fontSize).toPathData(1);
+      currentX += font.getAdvanceWidth(character, fontSize);
+
+      return characterPath.includes("NaN") ? "" : characterPath;
+    })
+    .filter(Boolean)
+    .join(" ");
 
   return `<path d="${pathData}" fill="${fill}" />`;
 }
@@ -157,7 +168,7 @@ function createFrameSvg(nowLocal) {
   const target = getNextTuesdayAtTargetTime(nowLocal);
   const state = getStateLabel(nowLocal, target);
   const remaining = toRemainingParts(target.toMillis() - nowLocal.toMillis());
-  const dateLabel = `${formatDateLabel(target)} às 19h (Brasília)`;
+  const dateLabel = `${formatDateLabel(target)} às 19h, horário de Brasília`;
 
   const days = pad2(remaining.days);
   const hours = pad2(remaining.hours);
@@ -165,9 +176,9 @@ function createFrameSvg(nowLocal) {
   const seconds = pad2(remaining.seconds);
   const chipText = formatStateChip(state);
 
-  const tileY = 150;
+  const tileY = 146;
   const tileGap = 16;
-  const tile1X = 48;
+  const tile1X = 40;
   const tile2X = tile1X + TILE_WIDTH + tileGap;
   const tile3X = tile2X + TILE_WIDTH + tileGap;
   const tile4X = tile3X + TILE_WIDTH + tileGap;
@@ -179,11 +190,11 @@ function createFrameSvg(nowLocal) {
       <rect x="17" y="17" width="502" height="4" fill="${palette.primary}" />
       <rect x="519" y="17" width="88" height="4" fill="${palette.primarySoft}" />
 
-      <rect x="440" y="38" width="152" height="34" rx="17" fill="${palette.cardSoft}" stroke="${palette.border}" stroke-width="1" />
-      ${textPath(chipText, 516, 60, 13, FONT_BOLD, palette.primary, "middle")}
+      <rect x="48" y="40" width="154" height="32" rx="16" fill="${palette.cardSoft}" stroke="${palette.border}" stroke-width="1" />
+      ${textPath(chipText, 125, 61, 12, FONT_BOLD, palette.primary, "middle")}
 
-      ${textPath("A aula começa em", 48, 72, 36, FONT_BLACK, palette.text)}
-      ${textPath(dateLabel, 48, 110, 17, FONT_REGULAR, palette.textSoft)}
+      ${textPath(dateLabel, 220, 61, 15, FONT_REGULAR, palette.textSoft)}
+      ${textPath("A aula começa em", 48, 122, 30, FONT_BLACK, palette.text)}
 
       ${createTileSvg(tile1X, tileY, "DIAS", days)}
       ${createTileSvg(tile2X, tileY, "HORAS", hours)}
