@@ -3,7 +3,8 @@ const { pathToFileURL } = require("url");
 const { GIFEncoder, quantize, applyPalette } = require("gifenc");
 const { DateTime } = require("luxon");
 
-const DEFAULT_TIMEZONE = "America/Sao_Paulo";
+const EVENT_TIMEZONE = "America/Sao_Paulo";
+const EVENT_TIMEZONE_LABEL = "horário de Brasília";
 const TARGET_WEEKDAY = 2; // Tuesday in Luxon (1=Mon .. 7=Sun)
 const TARGET_HOUR = 19;
 const TARGET_MINUTE = 0;
@@ -41,27 +42,6 @@ const palette = {
   textSoft: "#cccccc",
 };
 
-const COUNTRY_TO_TZ = {
-  BR: "America/Sao_Paulo",
-  AR: "America/Argentina/Buenos_Aires",
-  BO: "America/La_Paz",
-  CL: "America/Santiago",
-  CO: "America/Bogota",
-  CR: "America/Costa_Rica",
-  CU: "America/Havana",
-  DO: "America/Santo_Domingo",
-  EC: "America/Guayaquil",
-  GT: "America/Guatemala",
-  HN: "America/Tegucigalpa",
-  MX: "America/Mexico_City",
-  PE: "America/Lima",
-  PY: "America/Asuncion",
-  US: "America/New_York",
-  CA: "America/Toronto",
-  ES: "Europe/Madrid",
-  PT: "Europe/Lisbon",
-};
-
 function escapeXml(value) {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -69,80 +49,6 @@ function escapeXml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
-}
-
-function isValidTimeZone(timeZone) {
-  if (!timeZone || typeof timeZone !== "string") {
-    return false;
-  }
-
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: timeZone.trim() }).format(new Date());
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function getHeader(req, names) {
-  const headers = req?.headers || {};
-
-  for (const name of names) {
-    const value = headers[name] || headers[name.toLowerCase()];
-
-    if (Array.isArray(value)) {
-      if (value[0]) return value[0];
-      continue;
-    }
-
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-
-  return null;
-}
-
-function getFallbackTimeZoneFromCountry(country) {
-  if (!country) {
-    return null;
-  }
-
-  return COUNTRY_TO_TZ[country.toUpperCase()] || null;
-}
-
-function detectTimeZone(req) {
-  try {
-    const requestUrl = new URL(req.url || "", "https://instructiva-timer.local");
-    const tzFromQuery = requestUrl.searchParams.get("tz") || requestUrl.searchParams.get("timezone");
-
-    if (isValidTimeZone(tzFromQuery)) {
-      return tzFromQuery;
-    }
-  } catch {
-    // Ignore URL parse issues and continue to header lookup.
-  }
-
-  const detectedFromHeader = getHeader(req, [
-    "x-vercel-ip-timezone",
-    "x-vercel-timezone",
-    "x-timezone",
-    "x-geo-time-zone",
-    "cf-timezone",
-  ]);
-
-  if (isValidTimeZone(detectedFromHeader)) {
-    return detectedFromHeader;
-  }
-
-  const country = getHeader(req, ["x-vercel-ip-country", "cf-ipcountry", "x-country"]);
-  const fromCountry = getFallbackTimeZoneFromCountry(country);
-
-  if (isValidTimeZone(fromCountry)) {
-    return fromCountry;
-  }
-
-  return DEFAULT_TIMEZONE;
 }
 
 function getNextTuesdayAtTargetTime(nowLocal) {
@@ -213,7 +119,7 @@ function createFrameSvg(nowLocal) {
   const target = getNextTuesdayAtTargetTime(nowLocal);
   const state = getStateLabel(nowLocal, target);
   const remaining = toRemainingParts(target.toMillis() - nowLocal.toMillis());
-  const dateLabel = `${formatDateLabel(target)} às 19:00`;
+  const dateLabel = `${formatDateLabel(target)} às 19h (${EVENT_TIMEZONE_LABEL})`;
 
   const days = pad2(remaining.days);
   const hours = pad2(remaining.hours);
@@ -292,8 +198,7 @@ async function renderFrame(nowLocal) {
 
 module.exports = async (req, res) => {
   try {
-    const timeZone = detectTimeZone(req);
-    const now = DateTime.now().setZone(timeZone).startOf("second");
+    const now = DateTime.now().setZone(EVENT_TIMEZONE).startOf("second");
     const encoder = GIFEncoder({ initialCapacity: 1024 * 1024 });
     let quantizedPalette = null;
 

@@ -4,9 +4,9 @@ Timer 1 para campanhas de e-mail marketing com contagem regressiva evergreen.
 
 ## O que ele faz
 
-- Calcula automaticamente a próxima **terça-feira às 19:00** usando o timezone da pessoa que abriu o e-mail.
-- Se não for possível detectar o fuso, usa fallback oficial **America/Sao_Paulo**.
-- Se hoje for terça e ainda não for 19h, o estado mostrado é `HOJE`.
+- Calcula automaticamente a próxima **terça-feira às 19:00, horário de Brasília**.
+- O cálculo usa sempre o timezone oficial `America/Sao_Paulo`.
+- Se hoje for terça em Brasília e ainda não for 19h, o estado mostrado é `HOJE`.
 - Se a terça for no dia seguinte, mostra `AMANHÃ`.
 - Demais casos mostram `PRÓXIMA TERÇA`.
 - Gera um **GIF animado** no endpoint para uso dentro de `<img>` em e-mail.
@@ -15,9 +15,8 @@ Timer 1 para campanhas de e-mail marketing com contagem regressiva evergreen.
 
 Observação de timezone:
 
-- O timer tenta detectar `timezone` via headers de request (`x-vercel-ip-timezone`, `x-vercel-timezone` etc.).
-- Se não houver timezone de request, usa país de origem (`x-vercel-ip-country`) como fallback.
-- Também aceita override por query string para testes: `?tz=America/Sao_Paulo`.
+- O evento é fixo em **19h, horário de Brasília**.
+- Pessoas em outros fusos verão a contagem para esse mesmo horário oficial.
 
 ## Estrutura
 
@@ -42,18 +41,6 @@ No template do e-mail, insira:
 ```html
 <img
   src="https://seu-dominio.vercel.app/api/timer.gif"
-  alt="Contagem regressiva para a próxima aula"
-  width="640"
-  height="260"
-  style="border:0; display:block;"
-/>
-```
-
-Para testes com timezone explícito:
-
-```html
-<img
-  src="https://seu-dominio.vercel.app/api/timer.gif?tz=America/Sao_Paulo"
   alt="Contagem regressiva para a próxima aula"
   width="640"
   height="260"
