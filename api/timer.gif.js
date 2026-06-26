@@ -1,5 +1,5 @@
 const sharp = require("sharp");
-const { pathToFileURL } = require("url");
+const fs = require("fs");
 const { GIFEncoder, quantize, applyPalette } = require("gifenc");
 const { DateTime } = require("luxon");
 
@@ -20,15 +20,9 @@ const MS_PER_MINUTE = 60 * MS_PER_SECOND;
 const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
 
-const FONT_REGULAR_URL = pathToFileURL(
-  require.resolve("@expo-google-fonts/montserrat/400Regular/Montserrat_400Regular.ttf")
-).href;
-const FONT_BOLD_URL = pathToFileURL(
-  require.resolve("@expo-google-fonts/montserrat/700Bold/Montserrat_700Bold.ttf")
-).href;
-const FONT_BLACK_URL = pathToFileURL(
-  require.resolve("@expo-google-fonts/montserrat/900Black/Montserrat_900Black.ttf")
-).href;
+const MONTSERRAT_DATA_URL = `data:font/truetype;base64,${fs
+  .readFileSync(require.resolve("@expo-google-fonts/montserrat/700Bold/Montserrat_700Bold.ttf"))
+  .toString("base64")}`;
 
 const palette = {
   page: "#000000",
@@ -139,17 +133,17 @@ function createFrameSvg(nowLocal) {
       <style>
         @font-face {
           font-family: "MontserratRegular";
-          src: url("${FONT_REGULAR_URL}") format("truetype");
+          src: url("${MONTSERRAT_DATA_URL}") format("truetype");
           font-weight: 400;
         }
         @font-face {
           font-family: "MontserratBold";
-          src: url("${FONT_BOLD_URL}") format("truetype");
+          src: url("${MONTSERRAT_DATA_URL}") format("truetype");
           font-weight: 700;
         }
         @font-face {
           font-family: "MontserratBlack";
-          src: url("${FONT_BLACK_URL}") format("truetype");
+          src: url("${MONTSERRAT_DATA_URL}") format("truetype");
           font-weight: 900;
         }
         text {
