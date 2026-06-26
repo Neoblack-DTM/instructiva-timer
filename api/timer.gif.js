@@ -35,6 +35,7 @@ const palette = {
   primarySoft: "#ff7a35",
   text: "#ffffff",
   textSoft: "#cccccc",
+  tactical: "#343434",
 };
 
 function loadFont(filename) {
@@ -189,6 +190,7 @@ function createFrameSvg(nowLocal) {
       <rect x="16" y="16" width="608" height="228" rx="16" fill="${palette.card}" stroke="${palette.border}" stroke-width="1" />
       <rect x="17" y="17" width="502" height="4" fill="${palette.primary}" />
       <rect x="519" y="17" width="88" height="4" fill="${palette.primarySoft}" />
+      ${createTacticalOverlaySvg()}
 
       <rect x="48" y="40" width="154" height="32" rx="16" fill="${palette.cardSoft}" stroke="${palette.border}" stroke-width="1" />
       ${textPath(chipText, 125, 61, 12, FONT_BOLD, palette.primary, "middle")}
@@ -204,11 +206,24 @@ function createFrameSvg(nowLocal) {
   `;
 }
 
+function createTacticalOverlaySvg() {
+  return `
+    <g fill="none" stroke-linecap="square">
+      <path d="M32 38H62M32 38V68M578 38H608M608 38V68M32 222V192M32 222H62M608 222V192M608 222H578" stroke="${palette.tactical}" stroke-width="1" opacity="0.9" />
+      <path d="M220 40H256M270 40H286M350 40H386M400 40H416" stroke="${palette.primary}" stroke-width="1" opacity="0.35" />
+      <path d="M48 135H130M510 135H592" stroke="${palette.tactical}" stroke-width="1" opacity="0.75" />
+      <path d="M96 92H112M116 92H126M548 92H564M568 92H578" stroke="${palette.primary}" stroke-width="1" opacity="0.28" />
+    </g>
+  `;
+}
+
 function createTileSvg(x, y, label, value) {
   const centerX = x + TILE_WIDTH / 2;
 
   return `
     <rect x="${x}" y="${y}" width="${TILE_WIDTH}" height="${TILE_HEIGHT}" rx="10" fill="${palette.muted}" stroke="${palette.border}" stroke-width="1" />
+    <path d="M${x + 10} ${y + 10}H${x + 30}M${x + TILE_WIDTH - 30} ${y + TILE_HEIGHT - 10}H${x + TILE_WIDTH - 10}" stroke="${palette.primary}" stroke-width="1" opacity="0.45" />
+    <path d="M${x + 10} ${y + TILE_HEIGHT - 10}H${x + 22}M${x + TILE_WIDTH - 22} ${y + 10}H${x + TILE_WIDTH - 10}" stroke="${palette.tactical}" stroke-width="1" opacity="0.85" />
     ${textPath(label, centerX, y + 28, 11, FONT_BOLD, palette.primary, "middle")}
     ${textPath(value, centerX, y + 66, 41, FONT_BLACK, palette.text, "middle")}
   `;
