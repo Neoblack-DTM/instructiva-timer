@@ -1,4 +1,5 @@
-const { createCanvas } = require("canvas");
+const PImage = require("pureimage");
+const { GIFEncoder, quantize, applyPalette } = require("gifenc");
 const GIFEncoder = require("gifencoder");
 
 const BRASLIA_OFFSET_MINUTES = Number(process.env.BRT_OFFSET_MINUTES ?? -180); // America/Sao_Paulo
@@ -126,7 +127,7 @@ module.exports = async (req, res) => {
     const remaining = toRemainingParts(totalMs);
     const dateLabel = formatDateLabel(targetBr);
 
-    const canvas = createCanvas(WIDTH, HEIGHT);
+    const canvas = PImage.make(WIDTH, HEIGHT);
     const ctx = canvas.getContext("2d");
 
     const background = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT);
@@ -180,15 +181,19 @@ module.exports = async (req, res) => {
     ctx.fillText(`Estado: ${state}`, 64, 280);
     ctx.fillText("Atualiza no próximo refresh do e-mail (ou novo acesso ao pixel)", 64, 308);
 
-    const encoder = new GIFEncoder(WIDTH, HEIGHT);
-    encoder.start();
-    encoder.setRepeat(0);
-    encoder.setDelay(1000);
-    encoder.setQuality(12);
-    encoder.addFrame(ctx);
+    const { data: rgba } = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+    const palette = quantize(rgba, 256);
+    const indexed = applyPalette(rgba, palette);
+    const encoder = GIFEncoder();
+    encoder.writeFrame(indexed, WIDTH, HEIGHT, {
+      palette,
+      delay: 1000,
+      repeat: 0,
+      transparent: false,
+    });
     encoder.finish();
 
-  const buffer = Buffer.from(encoder.out.getData());
+    const buffer = Buffer.from(encoder.bytes());
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "image/gif");

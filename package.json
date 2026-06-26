@@ -8,7 +8,7 @@
     "start": "node api/timer.gif.js"
   },
   "dependencies": {
-    "canvas": "^2.11.2",
-    "gifencoder": "^2.0.1"
+    "gifenc": "^1.0.3",
+    "pureimage": "^0.4.18"
   }
 }
