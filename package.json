@@ -1,0 +1,14 @@
+{
+  "name": "instructiva-timer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Evergreen timer widget for email marketing campaigns.",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "node api/timer.gif.js"
+  },
+  "dependencies": {
+    "canvas": "^2.11.2",
+    "gifencoder": "^2.0.1"
+  }
+}
