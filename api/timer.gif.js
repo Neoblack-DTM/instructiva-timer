@@ -6,12 +6,15 @@ const DEFAULT_TIMEZONE = "America/Sao_Paulo";
 const TARGET_WEEKDAY = 2; // Tuesday in Luxon (1=Mon .. 7=Sun)
 const TARGET_HOUR = 19;
 const TARGET_MINUTE = 0;
-const WIDTH = 820;
-const HEIGHT = 320;
-const FONT_REGULAR = "TimerRegular";
-const FONT_BOLD = "TimerBold";
-const TILE_WIDTH = 176;
-const TILE_HEIGHT = 104;
+const WIDTH = 640;
+const HEIGHT = 260;
+const ANIMATION_FRAMES = 60;
+const FRAME_DELAY_MS = 1000;
+const FONT_REGULAR = "MontserratRegular";
+const FONT_BOLD = "MontserratBold";
+const FONT_BLACK = "MontserratBlack";
+const TILE_WIDTH = 132;
+const TILE_HEIGHT = 82;
 
 const MS_PER_SECOND = 1000;
 const MS_PER_MINUTE = 60 * MS_PER_SECOND;
@@ -19,17 +22,17 @@ const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
 
 const palette = {
-  background: "#020617",
-  panel: "#0f172a",
-  panelLine: "#1f2a4a",
-  panelTitle: "#38bdf8",
-  title: "#f8fafc",
-  subtitle: "#94a3b8",
-  tileBg: "#13213a",
-  tileText: "#94a3b8",
-  tileValue: "#e2e8f0",
-  state: "#67e8f9",
-  stateBg: "#082f49",
+  page: "#000000",
+  card: "#111111",
+  cardSoft: "#101010",
+  muted: "#1b1b1b",
+  border: "#222222",
+  primary: "#ff490d",
+  primarySoft: "#ff7a35",
+  text: "#ffffff",
+  textSoft: "#cccccc",
+  textMuted: "#9d9d9d",
+  success: "#20ca61",
 };
 
 const COUNTRY_TO_TZ = {
@@ -60,8 +63,18 @@ function ensureFontsLoaded() {
     return;
   }
 
-  PImage.registerFont(require.resolve("dejavu-fonts-ttf/ttf/DejaVuSans.ttf"), FONT_REGULAR).loadSync();
-  PImage.registerFont(require.resolve("dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf"), FONT_BOLD).loadSync();
+  PImage.registerFont(
+    require.resolve("@expo-google-fonts/montserrat/400Regular/Montserrat_400Regular.ttf"),
+    FONT_REGULAR
+  ).loadSync();
+  PImage.registerFont(
+    require.resolve("@expo-google-fonts/montserrat/700Bold/Montserrat_700Bold.ttf"),
+    FONT_BOLD
+  ).loadSync();
+  PImage.registerFont(
+    require.resolve("@expo-google-fonts/montserrat/900Black/Montserrat_900Black.ttf"),
+    FONT_BLACK
+  ).loadSync();
   fontsLoaded = true;
 }
 
@@ -209,52 +222,86 @@ function fillRect(ctx, x, y, width, height, fillStyle) {
   ctx.fillRect(x, y, width, height);
 }
 
+function fillBorderedRect(ctx, x, y, width, height, fillStyle, borderStyle) {
+  fillRect(ctx, x, y, width, height, borderStyle);
+  fillRect(ctx, x + 1, y + 1, width - 2, height - 2, fillStyle);
+}
+
 function drawPanel(ctx) {
-  fillRect(ctx, 0, 0, WIDTH, HEIGHT, palette.background);
-  fillRect(ctx, 16, 16, WIDTH - 32, HEIGHT - 32, palette.panel);
+  fillRect(ctx, 0, 0, WIDTH, HEIGHT, palette.page);
+  fillBorderedRect(ctx, 16, 16, WIDTH - 32, HEIGHT - 32, palette.card, palette.border);
+  fillRect(ctx, 17, 17, WIDTH - 34, 4, palette.primary);
+  fillRect(ctx, 520, 17, 87, 4, palette.primarySoft);
 }
 
 function drawHeader(ctx, stateLabel) {
-  ctx.fillStyle = palette.panelTitle;
-  ctx.font = `29pt ${FONT_BOLD}`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillText("Timer 1", 48, 42);
+  const chipText = stateLabel === "HOJE" ? "É HOJE" : stateLabel === "AMANHÃ" ? "É AMANHÃ" : "PRÓXIMA TERÇA";
 
-  ctx.fillStyle = palette.title;
-  ctx.font = `36pt ${FONT_BOLD}`;
-  ctx.fillText("Contagem para terça às 19h", 48, 78);
-
-  fillRect(ctx, WIDTH - 248, 42, 200, 42, palette.stateBg);
-  ctx.fillStyle = palette.state;
-  ctx.font = `17pt ${FONT_BOLD}`;
+  fillBorderedRect(ctx, 440, 38, 152, 34, palette.cardSoft, palette.border);
+  ctx.fillStyle = palette.primary;
+  ctx.font = `12pt ${FONT_BOLD}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(stateLabel, WIDTH - 148, 63);
+  ctx.fillText(chipText, 516, 55);
+
+  ctx.fillStyle = palette.text;
+  ctx.font = `31pt ${FONT_BLACK}`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("A aula começa em", 48, 42);
 }
 
 function drawMeta(ctx, dateLabel, tzLabel) {
-  ctx.fillStyle = palette.subtitle;
-  ctx.font = `24pt ${FONT_REGULAR}`;
+  ctx.fillStyle = palette.textSoft;
+  ctx.font = `15pt ${FONT_REGULAR}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText(`Próximo evento: ${dateLabel} às 19:00`, 48, 128);
+  ctx.fillText(`${dateLabel} às 19:00`, 48, 94);
 
-  ctx.fillText(`Fuso: ${tzLabel}`, 48, 160);
+  ctx.fillStyle = palette.textMuted;
+  ctx.font = `11pt ${FONT_REGULAR}`;
+  ctx.fillText(`Horário local do aluno: ${tzLabel}`, 48, 122);
 }
 
 function drawTile(ctx, label, value, x, y) {
-  fillRect(ctx, x, y, TILE_WIDTH, TILE_HEIGHT, palette.tileBg);
+  fillBorderedRect(ctx, x, y, TILE_WIDTH, TILE_HEIGHT, palette.muted, palette.border);
 
-  ctx.fillStyle = palette.tileText;
-  ctx.font = `18pt ${FONT_REGULAR}`;
+  ctx.fillStyle = palette.primary;
+  ctx.font = `10pt ${FONT_BOLD}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(label, x + 88, y + 30);
+  ctx.fillText(label, x + TILE_WIDTH / 2, y + 22);
 
-  ctx.fillStyle = palette.tileValue;
-  ctx.font = `50pt ${FONT_BOLD}`;
-  ctx.fillText(value, x + 88, y + 74);
+  ctx.fillStyle = palette.text;
+  ctx.font = `38pt ${FONT_BLACK}`;
+  ctx.fillText(value, x + TILE_WIDTH / 2, y + 58);
+}
+
+function drawFrame(nowLocal, timeZone) {
+  const target = getNextTuesdayAtTargetTime(nowLocal);
+  const state = getStateLabel(nowLocal, target);
+  const totalMs = target.toMillis() - nowLocal.toMillis();
+  const remaining = toRemainingParts(totalMs);
+  const dateLabel = target.setLocale("pt-BR").toFormat("cccc, dd/MM");
+  const timezoneLabel = getTimezoneLabel(timeZone);
+
+  const canvas = PImage.make(WIDTH, HEIGHT);
+  const ctx = canvas.getContext("2d");
+
+  drawPanel(ctx);
+  drawHeader(ctx, state);
+  drawMeta(ctx, dateLabel, timezoneLabel);
+
+  const tileStartX = 48;
+  const tileStartY = 154;
+  const tileGap = 16;
+
+  drawTile(ctx, "DIAS", pad2(remaining.days), tileStartX, tileStartY);
+  drawTile(ctx, "HORAS", pad2(remaining.hours), tileStartX + (TILE_WIDTH + tileGap), tileStartY);
+  drawTile(ctx, "MINUTOS", pad2(remaining.minutes), tileStartX + (TILE_WIDTH + tileGap) * 2, tileStartY);
+  drawTile(ctx, "SEGUNDOS", pad2(remaining.seconds), tileStartX + (TILE_WIDTH + tileGap) * 3, tileStartY);
+
+  return ctx.getImageData(0, 0, WIDTH, HEIGHT).data;
 }
 
 module.exports = async (req, res) => {
@@ -262,51 +309,28 @@ module.exports = async (req, res) => {
     ensureFontsLoaded();
 
     const timeZone = detectTimeZone(req);
-    const now = DateTime.now().setZone(timeZone);
-    const target = getNextTuesdayAtTargetTime(now);
+    const now = DateTime.now().setZone(timeZone).startOf("second");
+    const encoder = GIFEncoder({ initialCapacity: 1024 * 1024 });
+    let quantizedPalette = null;
 
-    const state = getStateLabel(now, target);
+    for (let frame = 0; frame < ANIMATION_FRAMES; frame += 1) {
+      const rgba = drawFrame(now.plus({ seconds: frame }), timeZone);
 
-    const totalMs = target.toMillis() - now.toMillis();
-    const remaining = toRemainingParts(totalMs);
+      if (!quantizedPalette) {
+        quantizedPalette = quantize(rgba, 256);
+      }
 
-    const daysLabel = pad2(remaining.days);
-    const hoursLabel = pad2(remaining.hours);
-    const minutesLabel = pad2(remaining.minutes);
-    const secondsLabel = pad2(remaining.seconds);
+      const indexed = applyPalette(rgba, quantizedPalette);
 
-    const dateLabel = target
-      .setLocale("pt-BR")
-      .toFormat("cccc, dd/MM");
+      encoder.writeFrame(indexed, WIDTH, HEIGHT, {
+        palette: frame === 0 ? quantizedPalette : null,
+        delay: FRAME_DELAY_MS,
+        repeat: 0,
+        transparent: false,
+        dispose: 1,
+      });
+    }
 
-    const timezoneLabel = getTimezoneLabel(timeZone);
-
-    const canvas = PImage.make(WIDTH, HEIGHT);
-    const ctx = canvas.getContext("2d");
-
-    drawPanel(ctx);
-    drawHeader(ctx, state);
-    drawMeta(ctx, dateLabel, timezoneLabel);
-
-    const tileStartX = 48;
-    const tileStartY = 198;
-
-    drawTile(ctx, "DIAS", daysLabel, tileStartX, tileStartY);
-    drawTile(ctx, "HORAS", hoursLabel, tileStartX + 190, tileStartY);
-    drawTile(ctx, "MINUTOS", minutesLabel, tileStartX + 380, tileStartY);
-    drawTile(ctx, "SEGUNDOS", secondsLabel, tileStartX + 570, tileStartY);
-
-    const { data: rgba } = ctx.getImageData(0, 0, WIDTH, HEIGHT);
-    const quantizedPalette = quantize(rgba, 256);
-    const indexed = applyPalette(rgba, quantizedPalette);
-
-    const encoder = GIFEncoder();
-    encoder.writeFrame(indexed, WIDTH, HEIGHT, {
-      palette: quantizedPalette,
-      delay: 1000,
-      repeat: 0,
-      transparent: false,
-    });
     encoder.finish();
 
     const buffer = Buffer.from(encoder.bytes());

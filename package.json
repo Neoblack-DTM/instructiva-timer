@@ -8,7 +8,7 @@
     "start": "node api/timer.gif.js"
   },
   "dependencies": {
-    "dejavu-fonts-ttf": "^2.37.3",
+    "@expo-google-fonts/montserrat": "^0.4.2",
     "gifenc": "^1.0.3",
     "luxon": "^3.5.0",
     "pureimage": "^0.4.18"

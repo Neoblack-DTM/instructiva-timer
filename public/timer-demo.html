@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Instructiva Timer 1</title>
+    <title>Instructiva Timer</title>
     <style>
       body {
         margin: 0;
-        font-family: Inter, Arial, sans-serif;
-        background: #020617;
-        color: #e2e8f0;
+        font-family: Montserrat, "Segoe UI", Arial, sans-serif;
+        background: #000;
+        color: #fff;
         display: grid;
         place-items: center;
         min-height: 100vh;
@@ -17,40 +17,43 @@
       }
 
       .card {
-        width: min(860px, 100%);
-        background: #0f1c38;
-        border: 1px solid #1f2a4a;
-        border-radius: 20px;
+        width: min(680px, 100%);
+        background: #101010;
+        border: 1px solid #222;
+        border-radius: 16px;
         padding: 32px;
-        box-shadow: 0 16px 40px rgb(2 6 23 / 35%);
+        box-shadow: 0 16px 40px rgb(0 0 0 / 35%);
       }
 
       h1 {
         margin: 0 0 8px;
         font-size: 28px;
+        color: #ff490d;
       }
 
       p {
-        color: #cbd5e1;
+        color: #cccccc;
       }
 
       .section {
         margin-top: 20px;
-        border-left: 2px solid #38bdf8;
+        border-left: 2px solid #ff490d;
         padding-left: 16px;
       }
     </style>
   </head>
   <body>
     <div class="card">
-      <h1>Timer 1 - Instructiva Timer</h1>
+      <h1>Preview do timer</h1>
       <p>Exemplo de embed para e-mail marketing: a imagem abaixo já aponta para o endpoint do Vercel.</p>
 
       <p>
         <img
           src="/api/timer.gif"
-          alt="Timer 1"
-          style="max-width: 820px; width: 100%; height: auto; border: 0;"
+          alt="Contagem regressiva para a próxima aula"
+          width="640"
+          height="260"
+          style="max-width: 640px; width: 100%; height: auto; border: 0;"
         />
       </p>
 

@@ -9,7 +9,9 @@ Timer 1 para campanhas de e-mail marketing com contagem regressiva evergreen.
 - Se hoje for terça e ainda não for 19h, o estado mostrado é `HOJE`.
 - Se a terça for no dia seguinte, mostra `AMANHÃ`.
 - Demais casos mostram `PRÓXIMA TERÇA`.
-- Gera a imagem em **GIF** no endpoint para uso dentro de `<img>` em e-mail.
+- Gera um **GIF animado** no endpoint para uso dentro de `<img>` em e-mail.
+- O GIF tem 60 frames de 1 segundo, para a regressão de segundos aparecer ao abrir o e-mail.
+- O visual segue o design system da Escola Instructiva: fundo preto, card grafite, destaque laranja e tipografia Montserrat.
 
 Observação de timezone:
 
@@ -40,9 +42,9 @@ No template do e-mail, insira:
 ```html
 <img
   src="https://seu-dominio.vercel.app/api/timer.gif"
-  alt="Timer 1"
-  width="820"
-  height="320"
+  alt="Contagem regressiva para a próxima aula"
+  width="640"
+  height="260"
   style="border:0; display:block;"
 />
 ```
@@ -52,9 +54,9 @@ Para testes com timezone explícito:
 ```html
 <img
   src="https://seu-dominio.vercel.app/api/timer.gif?tz=America/Sao_Paulo"
-  alt="Timer 1"
-  width="820"
-  height="320"
+  alt="Contagem regressiva para a próxima aula"
+  width="640"
+  height="260"
   style="border:0; display:block;"
 />
 ```
