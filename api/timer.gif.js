@@ -8,6 +8,10 @@ const TARGET_HOUR = 19;
 const TARGET_MINUTE = 0;
 const WIDTH = 820;
 const HEIGHT = 320;
+const FONT_REGULAR = "TimerRegular";
+const FONT_BOLD = "TimerBold";
+const TILE_WIDTH = 176;
+const TILE_HEIGHT = 104;
 
 const MS_PER_SECOND = 1000;
 const MS_PER_MINUTE = 60 * MS_PER_SECOND;
@@ -24,8 +28,8 @@ const palette = {
   tileBg: "#13213a",
   tileText: "#94a3b8",
   tileValue: "#e2e8f0",
-  footer: "#cbd5e1",
   state: "#67e8f9",
+  stateBg: "#082f49",
 };
 
 const COUNTRY_TO_TZ = {
@@ -48,6 +52,18 @@ const COUNTRY_TO_TZ = {
   ES: "Europe/Madrid",
   PT: "Europe/Lisbon",
 };
+
+let fontsLoaded = false;
+
+function ensureFontsLoaded() {
+  if (fontsLoaded) {
+    return;
+  }
+
+  PImage.registerFont(require.resolve("dejavu-fonts-ttf/ttf/DejaVuSans.ttf"), FONT_REGULAR).loadSync();
+  PImage.registerFont(require.resolve("dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf"), FONT_BOLD).loadSync();
+  fontsLoaded = true;
+}
 
 function isValidTimeZone(timeZone) {
   if (!timeZone || typeof timeZone !== "string") {
@@ -198,51 +214,53 @@ function drawPanel(ctx) {
   fillRect(ctx, 16, 16, WIDTH - 32, HEIGHT - 32, palette.panel);
 }
 
-function drawHeader(ctx) {
+function drawHeader(ctx, stateLabel) {
   ctx.fillStyle = palette.panelTitle;
-  ctx.font = "bold 29px Arial, sans-serif";
+  ctx.font = `29pt ${FONT_BOLD}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillText("Timer 1", 48, 42);
 
   ctx.fillStyle = palette.title;
-  ctx.font = "bold 36px Arial, sans-serif";
+  ctx.font = `36pt ${FONT_BOLD}`;
   ctx.fillText("Contagem para terça às 19h", 48, 78);
+
+  fillRect(ctx, WIDTH - 248, 42, 200, 42, palette.stateBg);
+  ctx.fillStyle = palette.state;
+  ctx.font = `17pt ${FONT_BOLD}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(stateLabel, WIDTH - 148, 63);
 }
 
 function drawMeta(ctx, dateLabel, tzLabel) {
   ctx.fillStyle = palette.subtitle;
-  ctx.font = "24px Arial, sans-serif";
+  ctx.font = `24pt ${FONT_REGULAR}`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
   ctx.fillText(`Próximo evento: ${dateLabel} às 19:00`, 48, 128);
 
   ctx.fillText(`Fuso: ${tzLabel}`, 48, 160);
 }
 
 function drawTile(ctx, label, value, x, y) {
-  fillRect(ctx, x, y, 176, 112, palette.tileBg);
+  fillRect(ctx, x, y, TILE_WIDTH, TILE_HEIGHT, palette.tileBg);
 
   ctx.fillStyle = palette.tileText;
-  ctx.font = "18px Arial, sans-serif";
+  ctx.font = `18pt ${FONT_REGULAR}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(label, x + 88, y + 30);
 
   ctx.fillStyle = palette.tileValue;
-  ctx.font = "bold 50px Arial, sans-serif";
+  ctx.font = `50pt ${FONT_BOLD}`;
   ctx.fillText(value, x + 88, y + 74);
-}
-
-function drawFooter(ctx, stateLabel, remainingLabel) {
-  ctx.fillStyle = palette.footer;
-  ctx.font = "18px Arial, sans-serif";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillText(`Estado: ${stateLabel}`, 48, 268);
-  ctx.fillText(remainingLabel, 48, 292);
 }
 
 module.exports = async (req, res) => {
   try {
+    ensureFontsLoaded();
+
     const timeZone = detectTimeZone(req);
     const now = DateTime.now().setZone(timeZone);
     const target = getNextTuesdayAtTargetTime(now);
@@ -263,13 +281,11 @@ module.exports = async (req, res) => {
 
     const timezoneLabel = getTimezoneLabel(timeZone);
 
-    const remainingLabel = `Faltam ${daysLabel} dias, ${hoursLabel}:${minutesLabel}:${secondsLabel}`;
-
     const canvas = PImage.make(WIDTH, HEIGHT);
     const ctx = canvas.getContext("2d");
 
     drawPanel(ctx);
-    drawHeader(ctx);
+    drawHeader(ctx, state);
     drawMeta(ctx, dateLabel, timezoneLabel);
 
     const tileStartX = 48;
@@ -279,8 +295,6 @@ module.exports = async (req, res) => {
     drawTile(ctx, "HORAS", hoursLabel, tileStartX + 190, tileStartY);
     drawTile(ctx, "MINUTOS", minutesLabel, tileStartX + 380, tileStartY);
     drawTile(ctx, "SEGUNDOS", secondsLabel, tileStartX + 570, tileStartY);
-
-    drawFooter(ctx, state, remainingLabel);
 
     const { data: rgba } = ctx.getImageData(0, 0, WIDTH, HEIGHT);
     const quantizedPalette = quantize(rgba, 256);
