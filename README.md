@@ -21,7 +21,8 @@ Observação de timezone:
 ## Estrutura
 
 - `api/timer.gif.js` → endpoint usado no email (`/api/timer.gif`).
-- `public/timer-demo.html` → preview e documentação rápida.
+- `public/timer-demo.html` → preview do timer real e dos três estados possíveis.
+- `public/index.html` → redireciona para o preview.
 
 ## Estados possíveis do timer
 
@@ -49,6 +50,16 @@ No template do e-mail, insira:
 ```
 
 Para reduzir cache indesejado no e-mail, pode usar `?v={{timestamp}}` no `src` também.
+
+## Preview dos estados
+
+Abra `/timer-demo.html` para ver:
+- estado real atual;
+- `É HOJE`;
+- `É AMANHÃ`;
+- `PRÓXIMA TERÇA`.
+
+Os modos `?preview=hoje`, `?preview=amanha` e `?preview=proxima` existem apenas para preview.
 
 ## Rodar localmente
 

@@ -108,6 +108,43 @@ function formatStateChip(stateLabel) {
   return "PRÓXIMA TERÇA";
 }
 
+function getQuery(req) {
+  try {
+    return new URL(req.url || "", "https://instructiva-timer.local").searchParams;
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+function getPreviewNow(preview) {
+  const base = DateTime.now().setZone(EVENT_TIMEZONE).startOf("second");
+  const target = getNextTuesdayAtTargetTime(base);
+
+  if (preview === "hoje") {
+    return target.minus({ minutes: 40 });
+  }
+
+  if (preview === "amanha") {
+    return target.minus({ days: 1, hours: 2 });
+  }
+
+  if (preview === "proxima" || preview === "geral") {
+    return target.minus({ days: 4, hours: 3 });
+  }
+
+  return base;
+}
+
+function getFrameCount(searchParams) {
+  const frames = Number(searchParams.get("frames"));
+
+  if (!Number.isFinite(frames)) {
+    return ANIMATION_FRAMES;
+  }
+
+  return Math.max(1, Math.min(ANIMATION_FRAMES, Math.floor(frames)));
+}
+
 function textPath(text, x, y, fontSize, font, fill, anchor = "start") {
   const width = font.getAdvanceWidth(text, fontSize);
   const startX = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x;
@@ -175,11 +212,13 @@ async function renderFrame(nowLocal) {
 
 module.exports = async (req, res) => {
   try {
-    const now = DateTime.now().setZone(EVENT_TIMEZONE).startOf("second");
+    const searchParams = getQuery(req);
+    const now = getPreviewNow(searchParams.get("preview"));
+    const frameCount = getFrameCount(searchParams);
     const encoder = GIFEncoder({ initialCapacity: 1024 * 1024 });
     let quantizedPalette = null;
 
-    for (let frame = 0; frame < ANIMATION_FRAMES; frame += 1) {
+    for (let frame = 0; frame < frameCount; frame += 1) {
       const rgba = await renderFrame(now.plus({ seconds: frame }));
 
       if (!quantizedPalette) {

@@ -3,68 +3,246 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Instructiva Timer</title>
+    <title>Instructiva Timer - Preview</title>
     <style>
-      body {
-        margin: 0;
-        font-family: Montserrat, "Segoe UI", Arial, sans-serif;
-        background: #000;
-        color: #fff;
-        display: grid;
-        place-items: center;
-        min-height: 100vh;
-        padding: 40px;
+      :root {
+        --page: #000;
+        --card: #111;
+        --muted: #1b1b1b;
+        --border: #222;
+        --primary: #ff490d;
+        --primary-soft: #ff7a35;
+        --text: #fff;
+        --text-soft: #ccc;
+        --text-muted: #9d9d9d;
       }
 
-      .card {
-        width: min(680px, 100%);
-        background: #101010;
-        border: 1px solid #222;
-        border-radius: 16px;
-        padding: 32px;
-        box-shadow: 0 16px 40px rgb(0 0 0 / 35%);
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          linear-gradient(180deg, rgb(255 73 13 / 10%), transparent 240px),
+          var(--page);
+        color: var(--text);
+        font-family: Montserrat, "Segoe UI", Arial, sans-serif;
+        padding: 40px 20px;
+      }
+
+      main {
+        width: min(1040px, 100%);
+        margin: 0 auto;
+      }
+
+      header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 28px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
       }
 
       h1 {
-        margin: 0 0 8px;
-        font-size: 28px;
-        color: #ff490d;
+        color: var(--primary);
+        font-size: clamp(28px, 4vw, 44px);
+        line-height: 1.05;
+        font-weight: 900;
       }
 
-      p {
-        color: #cccccc;
+      .subtitle {
+        color: var(--text-soft);
+        max-width: 620px;
+        margin-top: 10px;
+        font-size: 16px;
+        line-height: 1.55;
       }
 
-      .section {
-        margin-top: 20px;
-        border-left: 2px solid #ff490d;
-        padding-left: 16px;
+      .badge {
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--primary);
+        padding: 10px 14px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+
+      .panel::before {
+        content: "";
+        display: block;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary), var(--primary-soft));
+      }
+
+      .panel-body {
+        padding: 24px;
+      }
+
+      .live {
+        margin-bottom: 28px;
+      }
+
+      .live h2,
+      .state h2 {
+        color: var(--text);
+        font-size: 18px;
+        line-height: 1.25;
+        font-weight: 800;
+      }
+
+      .description {
+        color: var(--text-muted);
+        margin-top: 6px;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .timer-image {
+        display: block;
+        width: min(640px, 100%);
+        height: auto;
+        border: 0;
+        margin-top: 18px;
+      }
+
+      .states-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .state {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+        min-width: 0;
+      }
+
+      .state-label {
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+
+      .state img {
+        width: 100%;
+        height: auto;
+        margin-top: 14px;
+        border: 0;
+        display: block;
+      }
+
+      code {
+        color: var(--primary-soft);
+        background: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 2px 6px;
+      }
+
+      @media (max-width: 860px) {
+        header {
+          display: block;
+        }
+
+        .badge {
+          display: inline-block;
+          margin-top: 18px;
+        }
+
+        .states-grid {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
   <body>
-    <div class="card">
-      <h1>Preview do timer</h1>
-      <p>Exemplo de embed para e-mail marketing: a imagem abaixo já aponta para o endpoint do Vercel.</p>
+    <main>
+      <header>
+        <div>
+          <h1>Preview do timer</h1>
+          <p class="subtitle">
+            Visualização do GIF real e dos três estados possíveis do timer evergreen.
+            O cálculo oficial é sempre terça-feira às 19h, horário de Brasília.
+          </p>
+        </div>
+        <div class="badge">Timer 1 interno</div>
+      </header>
 
-      <p>
-        <img
-          src="/api/timer.gif"
-          alt="Contagem regressiva para a próxima aula"
-          width="640"
-          height="260"
-          style="max-width: 640px; width: 100%; height: auto; border: 0;"
-        />
-      </p>
+      <section class="panel live" aria-labelledby="live-title">
+        <div class="panel-body">
+          <h2 id="live-title">Estado real agora</h2>
+          <p class="description">Este é o mesmo endpoint que entra no e-mail: <code>/api/timer.gif</code>.</p>
+          <img
+            class="timer-image"
+            src="/api/timer.gif?v=live-preview"
+            alt="Contagem regressiva real para a próxima aula"
+            width="640"
+            height="260"
+          />
+        </div>
+      </section>
 
-      <div class="section">
-        <h2>Estados possíveis</h2>
-        <ul>
-          <li><strong>HOJE</strong> (quando ainda é a terça-feira da semana e ainda faltam horas para as 19h).</li>
-          <li><strong>AMANHÃ</strong> (quando a próxima terça for amanhã).</li>
-          <li><strong>PRÓXIMA TERÇA</strong> (todos os outros casos da semana).</li>
-        </ul>
-      </div>
-    </div>
+      <section aria-label="Estados possíveis do timer">
+        <div class="states-grid">
+          <article class="state">
+            <div class="state-label">Estado: hoje</div>
+            <h2>É HOJE</h2>
+            <p class="description">Simula uma terça-feira antes das 19h em Brasília.</p>
+            <img
+              src="/api/timer.gif?preview=hoje&frames=12&v=state-hoje"
+              alt="Preview do timer no estado é hoje"
+              width="640"
+              height="260"
+            />
+          </article>
+
+          <article class="state">
+            <div class="state-label">Estado: amanhã</div>
+            <h2>É AMANHÃ</h2>
+            <p class="description">Simula a véspera da próxima terça-feira às 19h.</p>
+            <img
+              src="/api/timer.gif?preview=amanha&frames=12&v=state-amanha"
+              alt="Preview do timer no estado é amanhã"
+              width="640"
+              height="260"
+            />
+          </article>
+
+          <article class="state">
+            <div class="state-label">Estado: geral</div>
+            <h2>PRÓXIMA TERÇA</h2>
+            <p class="description">Simula os outros dias da semana antes da próxima terça.</p>
+            <img
+              src="/api/timer.gif?preview=proxima&frames=12&v=state-proxima"
+              alt="Preview do timer no estado próxima terça"
+              width="640"
+              height="260"
+            />
+          </article>
+        </div>
+      </section>
+    </main>
   </body>
 </html>
