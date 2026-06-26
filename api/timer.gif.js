@@ -1,10 +1,10 @@
 const sharp = require("sharp");
 const fs = require("fs");
+const opentype = require("opentype.js");
 const { GIFEncoder, quantize, applyPalette } = require("gifenc");
 const { DateTime } = require("luxon");
 
 const EVENT_TIMEZONE = "America/Sao_Paulo";
-const EVENT_TIMEZONE_LABEL = "horário de Brasília";
 const TARGET_WEEKDAY = 2; // Tuesday in Luxon (1=Mon .. 7=Sun)
 const TARGET_HOUR = 19;
 const TARGET_MINUTE = 0;
@@ -20,9 +20,9 @@ const MS_PER_MINUTE = 60 * MS_PER_SECOND;
 const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
 
-const MONTSERRAT_DATA_URL = `data:font/truetype;base64,${fs
-  .readFileSync(require.resolve("@expo-google-fonts/montserrat/700Bold/Montserrat_700Bold.ttf"))
-  .toString("base64")}`;
+const FONT_REGULAR = loadFont("@expo-google-fonts/montserrat/400Regular/Montserrat_400Regular.ttf");
+const FONT_BOLD = loadFont("@expo-google-fonts/montserrat/700Bold/Montserrat_700Bold.ttf");
+const FONT_BLACK = loadFont("@expo-google-fonts/montserrat/900Black/Montserrat_900Black.ttf");
 
 const palette = {
   page: "#000000",
@@ -36,13 +36,11 @@ const palette = {
   textSoft: "#cccccc",
 };
 
-function escapeXml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+function loadFont(packagePath) {
+  const buffer = fs.readFileSync(require.resolve(packagePath));
+  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+
+  return opentype.parse(arrayBuffer);
 }
 
 function getNextTuesdayAtTargetTime(nowLocal) {
@@ -109,11 +107,19 @@ function formatStateChip(stateLabel) {
   return "PRÓXIMA TERÇA";
 }
 
+function textPath(text, x, y, fontSize, font, fill, anchor = "start") {
+  const width = font.getAdvanceWidth(text, fontSize);
+  const startX = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x;
+  const pathData = font.getPath(text, startX, y, fontSize).toPathData(1);
+
+  return `<path d="${pathData}" fill="${fill}" />`;
+}
+
 function createFrameSvg(nowLocal) {
   const target = getNextTuesdayAtTargetTime(nowLocal);
   const state = getStateLabel(nowLocal, target);
   const remaining = toRemainingParts(target.toMillis() - nowLocal.toMillis());
-  const dateLabel = `${formatDateLabel(target)} às 19h (${EVENT_TIMEZONE_LABEL})`;
+  const dateLabel = `${formatDateLabel(target)} às 19h (Brasília)`;
 
   const days = pad2(remaining.days);
   const hours = pad2(remaining.hours);
@@ -130,40 +136,16 @@ function createFrameSvg(nowLocal) {
 
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
-      <style>
-        @font-face {
-          font-family: "MontserratRegular";
-          src: url("${MONTSERRAT_DATA_URL}") format("truetype");
-          font-weight: 400;
-        }
-        @font-face {
-          font-family: "MontserratBold";
-          src: url("${MONTSERRAT_DATA_URL}") format("truetype");
-          font-weight: 700;
-        }
-        @font-face {
-          font-family: "MontserratBlack";
-          src: url("${MONTSERRAT_DATA_URL}") format("truetype");
-          font-weight: 900;
-        }
-        text {
-          paint-order: normal;
-          letter-spacing: 0;
-          text-rendering: geometricPrecision;
-          dominant-baseline: alphabetic;
-        }
-      </style>
-
       <rect width="${WIDTH}" height="${HEIGHT}" fill="${palette.page}" />
       <rect x="16" y="16" width="608" height="228" rx="16" fill="${palette.card}" stroke="${palette.border}" stroke-width="1" />
       <rect x="17" y="17" width="502" height="4" fill="${palette.primary}" />
       <rect x="519" y="17" width="88" height="4" fill="${palette.primarySoft}" />
 
       <rect x="440" y="38" width="152" height="34" rx="17" fill="${palette.cardSoft}" stroke="${palette.border}" stroke-width="1" />
-      <text x="516" y="60" text-anchor="middle" fill="${palette.primary}" font-family="MontserratBold" font-size="13">${escapeXml(chipText)}</text>
+      ${textPath(chipText, 516, 60, 13, FONT_BOLD, palette.primary, "middle")}
 
-      <text x="48" y="72" fill="${palette.text}" font-family="MontserratBlack" font-size="36">A aula começa em</text>
-      <text x="48" y="110" fill="${palette.textSoft}" font-family="MontserratRegular" font-size="17">${escapeXml(dateLabel)}</text>
+      ${textPath("A aula começa em", 48, 72, 36, FONT_BLACK, palette.text)}
+      ${textPath(dateLabel, 48, 110, 17, FONT_REGULAR, palette.textSoft)}
 
       ${createTileSvg(tile1X, tileY, "DIAS", days)}
       ${createTileSvg(tile2X, tileY, "HORAS", hours)}
@@ -178,8 +160,8 @@ function createTileSvg(x, y, label, value) {
 
   return `
     <rect x="${x}" y="${y}" width="${TILE_WIDTH}" height="${TILE_HEIGHT}" rx="10" fill="${palette.muted}" stroke="${palette.border}" stroke-width="1" />
-    <text x="${centerX}" y="${y + 28}" text-anchor="middle" fill="${palette.primary}" font-family="MontserratBold" font-size="11">${escapeXml(label)}</text>
-    <text x="${centerX}" y="${y + 66}" text-anchor="middle" fill="${palette.text}" font-family="MontserratBlack" font-size="41">${escapeXml(value)}</text>
+    ${textPath(label, centerX, y + 28, 11, FONT_BOLD, palette.primary, "middle")}
+    ${textPath(value, centerX, y + 66, 41, FONT_BLACK, palette.text, "middle")}
   `;
 }
 
