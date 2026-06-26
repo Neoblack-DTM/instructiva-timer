@@ -1,4 +1,5 @@
-const PImage = require("pureimage");
+const sharp = require("sharp");
+const { pathToFileURL } = require("url");
 const { GIFEncoder, quantize, applyPalette } = require("gifenc");
 const { DateTime } = require("luxon");
 
@@ -10,9 +11,6 @@ const WIDTH = 640;
 const HEIGHT = 260;
 const ANIMATION_FRAMES = 60;
 const FRAME_DELAY_MS = 1000;
-const FONT_REGULAR = "MontserratRegular";
-const FONT_BOLD = "MontserratBold";
-const FONT_BLACK = "MontserratBlack";
 const TILE_WIDTH = 132;
 const TILE_HEIGHT = 82;
 
@@ -20,6 +18,16 @@ const MS_PER_SECOND = 1000;
 const MS_PER_MINUTE = 60 * MS_PER_SECOND;
 const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
+
+const FONT_REGULAR_URL = pathToFileURL(
+  require.resolve("@expo-google-fonts/montserrat/400Regular/Montserrat_400Regular.ttf")
+).href;
+const FONT_BOLD_URL = pathToFileURL(
+  require.resolve("@expo-google-fonts/montserrat/700Bold/Montserrat_700Bold.ttf")
+).href;
+const FONT_BLACK_URL = pathToFileURL(
+  require.resolve("@expo-google-fonts/montserrat/900Black/Montserrat_900Black.ttf")
+).href;
 
 const palette = {
   page: "#000000",
@@ -31,8 +39,6 @@ const palette = {
   primarySoft: "#ff7a35",
   text: "#ffffff",
   textSoft: "#cccccc",
-  textMuted: "#9d9d9d",
-  success: "#20ca61",
 };
 
 const COUNTRY_TO_TZ = {
@@ -56,26 +62,13 @@ const COUNTRY_TO_TZ = {
   PT: "Europe/Lisbon",
 };
 
-let fontsLoaded = false;
-
-function ensureFontsLoaded() {
-  if (fontsLoaded) {
-    return;
-  }
-
-  PImage.registerFont(
-    require.resolve("@expo-google-fonts/montserrat/400Regular/Montserrat_400Regular.ttf"),
-    FONT_REGULAR
-  ).loadSync();
-  PImage.registerFont(
-    require.resolve("@expo-google-fonts/montserrat/700Bold/Montserrat_700Bold.ttf"),
-    FONT_BOLD
-  ).loadSync();
-  PImage.registerFont(
-    require.resolve("@expo-google-fonts/montserrat/900Black/Montserrat_900Black.ttf"),
-    FONT_BLACK
-  ).loadSync();
-  fontsLoaded = true;
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 function isValidTimeZone(timeZone) {
@@ -130,15 +123,13 @@ function detectTimeZone(req) {
     // Ignore URL parse issues and continue to header lookup.
   }
 
-  const tzCandidates = [
+  const detectedFromHeader = getHeader(req, [
     "x-vercel-ip-timezone",
     "x-vercel-timezone",
     "x-timezone",
     "x-geo-time-zone",
     "cf-timezone",
-  ];
-
-  const detectedFromHeader = getHeader(req, tzCandidates);
+  ]);
 
   if (isValidTimeZone(detectedFromHeader)) {
     return detectedFromHeader;
@@ -152,19 +143,6 @@ function detectTimeZone(req) {
   }
 
   return DEFAULT_TIMEZONE;
-}
-
-function getTimezoneLabel(timeZone) {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    timeZoneName: "short",
-  });
-
-  const parts = formatter.formatToParts(now);
-  const tzPart = parts.find((part) => part.type === "timeZoneName");
-
-  return tzPart ? tzPart.value : timeZone;
 }
 
 function getNextTuesdayAtTargetTime(nowLocal) {
@@ -217,104 +195,110 @@ function pad2(value) {
   return String(value).padStart(2, "0");
 }
 
-function fillRect(ctx, x, y, width, height, fillStyle) {
-  ctx.fillStyle = fillStyle;
-  ctx.fillRect(x, y, width, height);
+function capitalizeFirst(value) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function fillBorderedRect(ctx, x, y, width, height, fillStyle, borderStyle) {
-  fillRect(ctx, x, y, width, height, borderStyle);
-  fillRect(ctx, x + 1, y + 1, width - 2, height - 2, fillStyle);
+function formatDateLabel(target) {
+  return capitalizeFirst(target.setLocale("pt-BR").toFormat("cccc, dd/MM"));
 }
 
-function drawPanel(ctx) {
-  fillRect(ctx, 0, 0, WIDTH, HEIGHT, palette.page);
-  fillBorderedRect(ctx, 16, 16, WIDTH - 32, HEIGHT - 32, palette.card, palette.border);
-  fillRect(ctx, 17, 17, WIDTH - 34, 4, palette.primary);
-  fillRect(ctx, 520, 17, 87, 4, palette.primarySoft);
+function formatStateChip(stateLabel) {
+  if (stateLabel === "HOJE") return "É HOJE";
+  if (stateLabel === "AMANHÃ") return "É AMANHÃ";
+  return "PRÓXIMA TERÇA";
 }
 
-function drawHeader(ctx, stateLabel) {
-  const chipText = stateLabel === "HOJE" ? "É HOJE" : stateLabel === "AMANHÃ" ? "É AMANHÃ" : "PRÓXIMA TERÇA";
-
-  fillBorderedRect(ctx, 440, 38, 152, 34, palette.cardSoft, palette.border);
-  ctx.fillStyle = palette.primary;
-  ctx.font = `12pt ${FONT_BOLD}`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(chipText, 516, 55);
-
-  ctx.fillStyle = palette.text;
-  ctx.font = `31pt ${FONT_BLACK}`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillText("A aula começa em", 48, 42);
-}
-
-function drawMeta(ctx, dateLabel, tzLabel) {
-  ctx.fillStyle = palette.textSoft;
-  ctx.font = `15pt ${FONT_REGULAR}`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillText(`${dateLabel} às 19:00`, 48, 94);
-
-  ctx.fillStyle = palette.textMuted;
-  ctx.font = `11pt ${FONT_REGULAR}`;
-  ctx.fillText(`Horário local do aluno: ${tzLabel}`, 48, 122);
-}
-
-function drawTile(ctx, label, value, x, y) {
-  fillBorderedRect(ctx, x, y, TILE_WIDTH, TILE_HEIGHT, palette.muted, palette.border);
-
-  ctx.fillStyle = palette.primary;
-  ctx.font = `10pt ${FONT_BOLD}`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(label, x + TILE_WIDTH / 2, y + 22);
-
-  ctx.fillStyle = palette.text;
-  ctx.font = `38pt ${FONT_BLACK}`;
-  ctx.fillText(value, x + TILE_WIDTH / 2, y + 58);
-}
-
-function drawFrame(nowLocal, timeZone) {
+function createFrameSvg(nowLocal) {
   const target = getNextTuesdayAtTargetTime(nowLocal);
   const state = getStateLabel(nowLocal, target);
-  const totalMs = target.toMillis() - nowLocal.toMillis();
-  const remaining = toRemainingParts(totalMs);
-  const dateLabel = target.setLocale("pt-BR").toFormat("cccc, dd/MM");
-  const timezoneLabel = getTimezoneLabel(timeZone);
+  const remaining = toRemainingParts(target.toMillis() - nowLocal.toMillis());
+  const dateLabel = `${formatDateLabel(target)} às 19:00`;
 
-  const canvas = PImage.make(WIDTH, HEIGHT);
-  const ctx = canvas.getContext("2d");
+  const days = pad2(remaining.days);
+  const hours = pad2(remaining.hours);
+  const minutes = pad2(remaining.minutes);
+  const seconds = pad2(remaining.seconds);
+  const chipText = formatStateChip(state);
 
-  drawPanel(ctx);
-  drawHeader(ctx, state);
-  drawMeta(ctx, dateLabel, timezoneLabel);
-
-  const tileStartX = 48;
-  const tileStartY = 154;
+  const tileY = 150;
   const tileGap = 16;
+  const tile1X = 48;
+  const tile2X = tile1X + TILE_WIDTH + tileGap;
+  const tile3X = tile2X + TILE_WIDTH + tileGap;
+  const tile4X = tile3X + TILE_WIDTH + tileGap;
 
-  drawTile(ctx, "DIAS", pad2(remaining.days), tileStartX, tileStartY);
-  drawTile(ctx, "HORAS", pad2(remaining.hours), tileStartX + (TILE_WIDTH + tileGap), tileStartY);
-  drawTile(ctx, "MINUTOS", pad2(remaining.minutes), tileStartX + (TILE_WIDTH + tileGap) * 2, tileStartY);
-  drawTile(ctx, "SEGUNDOS", pad2(remaining.seconds), tileStartX + (TILE_WIDTH + tileGap) * 3, tileStartY);
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
+      <style>
+        @font-face {
+          font-family: "MontserratRegular";
+          src: url("${FONT_REGULAR_URL}") format("truetype");
+          font-weight: 400;
+        }
+        @font-face {
+          font-family: "MontserratBold";
+          src: url("${FONT_BOLD_URL}") format("truetype");
+          font-weight: 700;
+        }
+        @font-face {
+          font-family: "MontserratBlack";
+          src: url("${FONT_BLACK_URL}") format("truetype");
+          font-weight: 900;
+        }
+        text {
+          paint-order: normal;
+          letter-spacing: 0;
+          text-rendering: geometricPrecision;
+          dominant-baseline: alphabetic;
+        }
+      </style>
 
-  return ctx.getImageData(0, 0, WIDTH, HEIGHT).data;
+      <rect width="${WIDTH}" height="${HEIGHT}" fill="${palette.page}" />
+      <rect x="16" y="16" width="608" height="228" rx="16" fill="${palette.card}" stroke="${palette.border}" stroke-width="1" />
+      <rect x="17" y="17" width="502" height="4" fill="${palette.primary}" />
+      <rect x="519" y="17" width="88" height="4" fill="${palette.primarySoft}" />
+
+      <rect x="440" y="38" width="152" height="34" rx="17" fill="${palette.cardSoft}" stroke="${palette.border}" stroke-width="1" />
+      <text x="516" y="60" text-anchor="middle" fill="${palette.primary}" font-family="MontserratBold" font-size="13">${escapeXml(chipText)}</text>
+
+      <text x="48" y="72" fill="${palette.text}" font-family="MontserratBlack" font-size="36">A aula começa em</text>
+      <text x="48" y="110" fill="${palette.textSoft}" font-family="MontserratRegular" font-size="17">${escapeXml(dateLabel)}</text>
+
+      ${createTileSvg(tile1X, tileY, "DIAS", days)}
+      ${createTileSvg(tile2X, tileY, "HORAS", hours)}
+      ${createTileSvg(tile3X, tileY, "MINUTOS", minutes)}
+      ${createTileSvg(tile4X, tileY, "SEGUNDOS", seconds)}
+    </svg>
+  `;
+}
+
+function createTileSvg(x, y, label, value) {
+  const centerX = x + TILE_WIDTH / 2;
+
+  return `
+    <rect x="${x}" y="${y}" width="${TILE_WIDTH}" height="${TILE_HEIGHT}" rx="10" fill="${palette.muted}" stroke="${palette.border}" stroke-width="1" />
+    <text x="${centerX}" y="${y + 28}" text-anchor="middle" fill="${palette.primary}" font-family="MontserratBold" font-size="11">${escapeXml(label)}</text>
+    <text x="${centerX}" y="${y + 66}" text-anchor="middle" fill="${palette.text}" font-family="MontserratBlack" font-size="41">${escapeXml(value)}</text>
+  `;
+}
+
+async function renderFrame(nowLocal) {
+  return sharp(Buffer.from(createFrameSvg(nowLocal)))
+    .ensureAlpha()
+    .raw()
+    .toBuffer();
 }
 
 module.exports = async (req, res) => {
   try {
-    ensureFontsLoaded();
-
     const timeZone = detectTimeZone(req);
     const now = DateTime.now().setZone(timeZone).startOf("second");
     const encoder = GIFEncoder({ initialCapacity: 1024 * 1024 });
     let quantizedPalette = null;
 
     for (let frame = 0; frame < ANIMATION_FRAMES; frame += 1) {
-      const rgba = drawFrame(now.plus({ seconds: frame }), timeZone);
+      const rgba = await renderFrame(now.plus({ seconds: frame }));
 
       if (!quantizedPalette) {
         quantizedPalette = quantize(rgba, 256);
