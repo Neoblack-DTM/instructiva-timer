@@ -1,5 +1,6 @@
 const sharp = require("sharp");
 const fs = require("fs");
+const path = require("path");
 const opentype = require("opentype.js");
 const { GIFEncoder, quantize, applyPalette } = require("gifenc");
 const { DateTime } = require("luxon");
@@ -20,9 +21,9 @@ const MS_PER_MINUTE = 60 * MS_PER_SECOND;
 const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
 
-const FONT_REGULAR = loadFont("@expo-google-fonts/montserrat/400Regular/Montserrat_400Regular.ttf");
-const FONT_BOLD = loadFont("@expo-google-fonts/montserrat/700Bold/Montserrat_700Bold.ttf");
-const FONT_BLACK = loadFont("@expo-google-fonts/montserrat/900Black/Montserrat_900Black.ttf");
+const FONT_REGULAR = loadFont("Montserrat_400Regular.ttf");
+const FONT_BOLD = loadFont("Montserrat_700Bold.ttf");
+const FONT_BLACK = loadFont("Montserrat_900Black.ttf");
 
 const palette = {
   page: "#000000",
@@ -36,8 +37,8 @@ const palette = {
   textSoft: "#cccccc",
 };
 
-function loadFont(packagePath) {
-  const buffer = fs.readFileSync(require.resolve(packagePath));
+function loadFont(filename) {
+  const buffer = fs.readFileSync(path.join(__dirname, "fonts", filename));
   const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 
   return opentype.parse(arrayBuffer);

@@ -8,7 +8,6 @@
     "start": "node api/timer.gif.js"
   },
   "dependencies": {
-    "@expo-google-fonts/montserrat": "^0.4.2",
     "gifenc": "^1.0.3",
     "luxon": "^3.5.0",
     "opentype.js": "^2.0.0",
