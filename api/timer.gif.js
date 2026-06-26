@@ -1,6 +1,5 @@
 const PImage = require("pureimage");
 const { GIFEncoder, quantize, applyPalette } = require("gifenc");
-const GIFEncoder = require("gifencoder");
 
 const BRASLIA_OFFSET_MINUTES = Number(process.env.BRT_OFFSET_MINUTES ?? -180); // America/Sao_Paulo
 const BR_TIMEZONE_LABEL = "BRT";
